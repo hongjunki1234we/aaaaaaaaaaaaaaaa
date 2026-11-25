@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>한일 교류·여행 & JLPT/TOEIC 로그 트래커</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .form-box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 14px; border-radius: 8px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .form-box input, .form-box select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+    .btn { padding: 6px 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .btn-primary { background: #1d4ed8; color: #fff; }
+    .btn-green { background: #15803d; color: #fff; }
+    .btn-amber { background: #d97706; color: #fff; }
+    .btn-red { background: #dc2626; color: #fff; }
+    .badge { padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: bold; }
+    .LEARNING { background: #fee2e2; color: #991b1b; }
+    .REVIEWING { background: #fef3c7; color: #92400e; }
+    .MASTERED { background: #dcfce7; color: #166534; }
+    .over-budget { color: #dc2626; font-weight: bold; }
+    .ok-budget { color: #15803d; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>한일 교류·여행 & JLPT/TOEIC 로그 트래커</h1>
+    <nav>
+      <a href="/">대시보드</a>
+      <a href="#study">어학 복습 로그</a>
+      <a href="#trips">일본 여행 & 경비</a>
+      <a href="#tips">문화·학습 팁</a>
+    </nav>
+
+    <div class="cards">
+      <div class="card">
+        <h3>누적 어학 로그</h3>
+        <p><%= stats.studyCount %>건</p>
+      </div>
+      <div class="card">
+        <h3>등록된 일본 여행</h3>
+        <p><%= stats.tripCount %>건</p>
+      </div>
+      <div class="card">
+        <h3>문화·학습 팁</h3>
+        <p><%= stats.tipCount %>건</p>
+      </div>
+    </div>
+
+    <h2 id="study">어학 복습 현황 (JLPT N2 / TOEIC)</h2>
+    <form class="form-box" action="/study/add" method="POST">
+      <select name="exam_type" required>
+        <option value="JLPT_N2">JLPT N2</option>
+        <option value="TOEIC">TOEIC</option>
+      </select>
+      <select name="category" required>
+        <option value="VOCAB">어휘(VOCAB)</option>
+        <option value="GRAMMAR">문법(GRAMMAR)</option>
+        <option value="WRONG_ANSWER">오답(WRONG_ANSWER)</option>
+      </select>
+      <input type="text" name="term_or_question" placeholder="단어 또는 문제 핵심" required />
+      <input type="text" name="meaning_or_answer" placeholder="뜻 또는 정답 포인트" required />
+      <input type="text" name="mistake_note" placeholder="오답 메모 (선택)" />
+      <button class="btn btn-primary" type="submit">+ 로그 등록</button>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>시험</th>
+          <th>구분</th>
+          <th>항목</th>
+          <th>뜻 / 정답</th>
+          <th>메모</th>
+          <th>복습</th>
+          <th>숙련도 상태</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% studyLogs.forEach(item => { %>
+          <tr>
+            <td><%= item.exam_type %></td>
+            <td><%= item.category %></td>
+            <td><strong><%= item.term_or_question %></strong></td>
+            <td><%= item.meaning_or_answer %></td>
+            <td><%= item.mistake_note || '-' %></td>
+            <td><%= item.review_count %>회</td>
+            <td><span class="badge <%= item.mastery_status %>"><%= item.mastery_status %></span></td>
+            <td style="white-space: nowrap;">
+              <form action="/study/<%= item.log_id %>/review" method="POST" style="display:inline;">
+                <button class="btn btn-green" type="submit">복습 +1</button>
+              </form>
+              <form action="/study/<%= item.log_id %>/reset" method="POST" style="display:inline;">
+                <button class="btn btn-amber" type="submit">초기화</button>
+              </form>
+              <form action="/study/<%= item.log_id %>/delete" method="POST" style="display:inline;">
+                <button class="btn btn-red" type="submit">삭제</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <h2 id="trips">일본 여행 & 지출 요약</h2>
+    <form class="form-box" action="/trips/add" method="POST">
+      <input type="text" name="city_name" placeholder="도시 (예: 후쿠오카, 오사카)" required />
+      <input type="date" name="start_date" required />
+      <input type="date" name="end_date" required />
+      <input type="number" name="budget_jpy" placeholder="예산 (JPY)" min="0" required />
+      <input type="number" step="0.01" name="exchange_rate_krw" placeholder="환율 (예: 9.10)" value="9.10" required />
+      <button class="btn btn-primary" type="submit">+ 여행 등록</button>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>도시</th>
+          <th>기간</th>
+          <th>예산(JPY)</th>
+          <th>지출 합계(JPY)</th>
+          <th>잔여 예산(JPY)</th>
+          <th>원화 환산(약 KRW)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% trips.forEach(t => {
+          const budget = Number(t.budget_jpy || 0);
+          const spent = Number(t.spent_jpy || 0);
+          const remain = budget - spent;
+        %>
+          <tr>
+            <td><strong><%= t.city_name %></strong></td>
+            <td><%= t.start_date.toISOString ? t.start_date.toISOString().slice(0,10) : String(t.start_date).slice(0,10) %> ~ <%= t.end_date.toISOString ? t.end_date.toISOString().slice(0,10) : String(t.end_date).slice(0,10) %></td>
+            <td><%= budget.toLocaleString() %></td>
+            <td><%= spent.toLocaleString() %></td>
+            <td class="<%= remain < 0 ? 'over-budget' : 'ok-budget' %>"><%= remain.toLocaleString() %></td>
+            <td><%= Math.round(spent * Number(t.exchange_rate_krw)).toLocaleString() %>원</td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <h3>여행 세부 항목 (경비 / 일정 / 추천 스팟)</h3>
+    <% if (trips.length > 0) { %>
+      <form class="form-box" action="/trips/<%= trips[0].trip_id %>/items/add" method="POST">
+        <select name="item_type" required>
+          <option value="EXPENSE">경비(EXPENSE)</option>
+          <option value="SCHEDULE">일정(SCHEDULE)</option>
+          <option value="SPOT">추천 스팟(SPOT)</option>
+        </select>
+        <select name="category" required>
+          <option value="FOOD">식비(FOOD)</option>
+          <option value="TRANSIT">교통(TRANSIT)</option>
+          <option value="STAY">숙박(STAY)</option>
+          <option value="GOODS">쇼핑/굿즈(GOODS)</option>
+          <option value="OTHER">기타(OTHER)</option>
+        </select>
+        <input type="text" name="title" placeholder="항목명 (예: 라멘, 지하철)" required />
+        <input type="text" name="location_name" placeholder="장소/노선 (예: 하카타역)" />
+        <input type="number" name="amount_jpy" placeholder="금액 (JPY)" min="0" value="0" />
+        <label style="font-size: 13px;">
+          <input type="checkbox" name="is_recommended" value="1" /> 추천 스팟
+        </label>
+        <input type="text" name="note" placeholder="메모" />
+        <button class="btn btn-green" type="submit">+ 항목 추가 (<%= trips[0].city_name %>)</button>
+      </form>
+    <% } %>
+
+    <table>
+      <thead>
+        <tr>
+          <th>여행</th>
+          <th>유형</th>
+          <th>분류</th>
+          <th>항목명</th>
+          <th>장소</th>
+          <th>금액(JPY)</th>
+          <th>추천</th>
+          <th>삭제</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% tripItems.forEach(item => { %>
+          <tr>
+            <td><%= item.city_name %></td>
+            <td><%= item.item_type %></td>
+            <td><%= item.category %></td>
+            <td><%= item.title %></td>
+            <td><%= item.location_name || '-' %></td>
+            <td><%= Number(item.amount_jpy || 0).toLocaleString() %></td>
+            <td><%= item.is_recommended ? '★ 추천' : '-' %></td>
+            <td>
+              <form action="/trips/items/<%= item.item_id %>/delete" method="POST" style="display:inline;">
+                <button class="btn btn-red" type="submit">삭제</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <h2 id="tips">한일 문화 & 어학 학습 팁</h2>
+    <form class="form-box" action="/tips/add" method="POST">
+      <input type="text" name="region_or_topic" placeholder="지역/주제 (예: 후쿠오카, JLPT N2)" required />
+      <input type="text" name="title" placeholder="팁 제목" required />
+      <input type="text" name="content" placeholder="핵심 내용" required />
+      <button class="btn btn-primary" type="submit">+ 팁 등록</button>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>지역/주제</th>
+          <th>제목</th>
+          <th>내용</th>
+          <th>유용함</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% tips.forEach(tip => { %>
+          <tr>
+            <td><%= tip.region_or_topic %></td>
+            <td><strong><%= tip.title %></strong></td>
+            <td><%= tip.content %></td>
+            <td><strong><%= tip.helpful_count %></strong></td>
+            <td style="white-space: nowrap;">
+              <form action="/tips/<%= tip.tip_id %>/helpful" method="POST" style="display:inline;">
+                <button class="btn btn-green" type="submit">유용함 +1</button>
+              </form>
+              <form action="/tips/<%= tip.tip_id %>/delete" method="POST" style="display:inline;">
+                <button class="btn btn-red" type="submit">삭제</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
